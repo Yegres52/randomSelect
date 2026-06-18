@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'data/database_bootstrap.dart';
 import 'screens/selector_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  initializeDatabaseFactory();
   runApp(const RandomSelectApp());
 }
 
