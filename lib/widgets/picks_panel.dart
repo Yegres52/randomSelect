@@ -48,7 +48,7 @@ class PicksPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Игрок ${pick.playerNumber} - ${pick.role.title}',
+                        '${pick.playerName} - ${pick.role.title}',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),

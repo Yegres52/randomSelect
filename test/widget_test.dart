@@ -6,6 +6,7 @@ void main() {
     await tester.pumpWidget(const RandomSelectApp());
 
     expect(find.text('Random Select'), findsOneWidget);
+    expect(find.text('Игроки'), findsOneWidget);
     expect(find.text('Список'), findsOneWidget);
   });
 }

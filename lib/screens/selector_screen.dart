@@ -8,6 +8,7 @@ import '../models/game_hero.dart';
 import '../models/hero_role.dart';
 import '../models/player_pick.dart';
 import 'hero_editor_screen.dart';
+import 'player_settings_screen.dart';
 import '../widgets/picks_panel.dart';
 import '../widgets/wheel_panel.dart';
 
@@ -55,36 +56,54 @@ class _SelectorScreenState extends State<SelectorScreen>
       _currentWheelLabel = 'Крутим...';
     });
 
+    try {
+      await _generatePicks();
+    } on StateError catch (error) {
+      _showPickError(error.message);
+    } catch (_) {
+      _showPickError('Не удалось выбрать персонажей.');
+    }
+  }
+
+  Future<void> _generatePicks() async {
     final heroesByRole = <HeroRole, List<GameHero>>{};
     for (final role in HeroRole.values) {
       final heroes = await _repository.getHeroesByRole(role);
-      if (heroes.length < 4) {
-        throw StateError('Для роли "${role.title}" нужно минимум 4 персонажа.');
+      if (heroes.length < 2) {
+        throw StateError('Для роли "${role.title}" нужно минимум 2 персонажа.');
       }
       heroesByRole[role] = heroes;
     }
 
-    final roles = [
-      HeroRole.tank,
-      HeroRole.tank,
-      HeroRole.damage,
-      HeroRole.damage,
-      HeroRole.healer,
-      HeroRole.healer,
+    final players = await _repository.getPlayers();
+    final roleCounts = await _repository.getRoleCounts();
+    if (roleCounts.total == 0) {
+      throw StateError('Выбери хотя бы одну роль.');
+    }
+
+    final selectedPlayers = players.take(roleCounts.total).toList();
+    final roles = <HeroRole>[
+      for (var i = 0; i < roleCounts.tanks; i++) HeroRole.tank,
+      for (var i = 0; i < roleCounts.damage; i++) HeroRole.damage,
+      for (var i = 0; i < roleCounts.healers; i++) HeroRole.healer,
     ]..shuffle(_random);
 
     final nextPicks = <PlayerPick>[];
 
-    for (var playerIndex = 0; playerIndex < 6; playerIndex++) {
+    for (var playerIndex = 0;
+        playerIndex < selectedPlayers.length;
+        playerIndex++) {
+      final player = selectedPlayers[playerIndex];
       final role = roles[playerIndex];
       final pool = List<GameHero>.of(heroesByRole[role]!)..shuffle(_random);
       final options = pool.take(2).toList();
-      final label = 'Игрок ${playerIndex + 1}: ${role.title}';
+      final label = '${player.name}: ${role.title}';
 
       await _spinWheel(label);
       nextPicks.add(
         PlayerPick(
-          playerNumber: playerIndex + 1,
+          playerNumber: player.position,
+          playerName: player.name,
           role: role,
           options: options,
         ),
@@ -112,6 +131,20 @@ class _SelectorScreenState extends State<SelectorScreen>
     });
   }
 
+  void _showPickError(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = false;
+      _currentWheelLabel = 'Нажми старт';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   Future<void> _spinWheel(String label) async {
     if (!mounted) {
       return;
@@ -132,18 +165,39 @@ class _SelectorScreenState extends State<SelectorScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isLoading
-            ? null
-            : () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const HeroEditorScreen(),
-                  ),
-                );
-              },
-        icon: const Icon(Icons.list_alt_outlined),
-        label: const Text('Список'),
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'players',
+            onPressed: _isLoading
+                ? null
+                : () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const PlayerSettingsScreen(),
+                      ),
+                    );
+                  },
+            icon: const Icon(Icons.group_outlined),
+            label: const Text('Игроки'),
+          ),
+          const SizedBox(width: 12),
+          FloatingActionButton.extended(
+            heroTag: 'heroes',
+            onPressed: _isLoading
+                ? null
+                : () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const HeroEditorScreen(),
+                      ),
+                    );
+                  },
+            icon: const Icon(Icons.list_alt_outlined),
+            label: const Text('Список'),
+          ),
+        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
